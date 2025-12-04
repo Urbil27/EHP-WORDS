@@ -80,6 +80,9 @@ void find_closest_word(float *result_vector, float *words, int numwords, int idx
   *closest_word_idx = -1;
   for(i=0;i<numwords;i++)
   {
+    if (i == idx1 || i == idx2 || i == idx3) //Hitz bat berdina bada ez kontutan hartu
+            continue;
+
     float similarity = cosine_similarity(result_vector,&words[i*EMB_SIZE],EMB_SIZE); //i*EMB_SIZE hitz bakoitzak EMB_SIZE posizio okupatzen dituelako
     if(similarity>*max_similarity)
     {

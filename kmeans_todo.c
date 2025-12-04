@@ -120,14 +120,27 @@ void k_means_calculate(float *words, int numwords, int dim, int numclusters, int
            - Hitz bakoitzari cluster gertukoena esleitu cosine_similarity funtzioan oinarrituta
            - Asignar cada palabra al cluster más cercano basandose en la función cosine_similarity       
 ****************************************************************************************/
-int i =0;
-for(i=0;i<numwords;i++)
+int i =0, j=0;
+for(i=0;i<numwords;i++) //Hitzak iteratu
 {
-  
+  int gert_cluster_idx = -1;
+  float gert_cluster_dist =-1.0f;
+  for(j=0; j<numclusters; j++) //Clusterrak iteratu
+  {
+    float uneko_dist = word_distance(*words[i],*centroids[j]);
+    if(uneko_dist<gert_cluster_dist<gert_cluster_dist | j==0) //uneko distantzia txikiagoa haurrekoan aurkitutakoa baino edo lehenengo iterazioa bada ...
+    {
+      //balioak eguneratu
+      gert_cluster_dist = uneko_dist;
+      gert_cluster_idx = j;
+    }
+  }
+  //Aurkitu dugu gertuen dagoen clusterra, sartu bektorean
+  wordcent[i] = gert_cluster_idx; 
 }
 }
 
-double cluster_homogeneity(float *words, struct clusterinfo *members, int i, int numclusters, int number)
+double cluster_homogeneity(float *words, struct clusterinfo *members, int i, int numclusters, int number) //zertarako nahi ditut i numclusters eta number?
 {
     /****************************************************************************************
       OSATZEKO - PARA COMPLETAR
@@ -135,6 +148,22 @@ double cluster_homogeneity(float *words, struct clusterinfo *members, int i, int
        Cluster bakoitzean, hitz bikote guztien arteko distantziak - En cada cluster, las distancias entre todos los pares de elementos
        Adi, i-j neurtuta, ez da gero j-i neurtu behar  / Ojo, una vez calculado el par i-j no hay que calcular el j-i
     ****************************************************************************************/
+  int i, j;
+  double dist_bb, dist_batura=0.0;
+  for(int i = 0; i<members.number; i++)
+  {
+    for(int j = 0; j<members.number; j++)
+    {
+      if (i!=j)
+      {
+        dist_batura+=word_distance(members.elements[i],members.elements[j]);
+      }
+    }
+
+  }
+  dist_bb=dist_batura/members.number*(members.number-1);
+  return dist_bb;
+
 }
 
 double centroid_homogeneity(float *centroids, int i, int numclusters)
