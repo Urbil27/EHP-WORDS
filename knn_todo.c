@@ -53,6 +53,15 @@ void knn_complet(float *words, int numwords, float *similarities) {
 
     //    OSATZEKO - PARA COMPLETAR
 ******************************************************************/
+    
+    for(i=0; i<numwords;i++)
+    {
+	    for(j=0; j<numwords; j++)
+	    {
+		    float similarity = cosine_similarity(&words[i*EMB_SIZE],&words[j*EMB_SIZE],EMB_SIZE);
+		    similarities[i*numwords + j]=similarity;	
+      }
+    }
 }
 
 
@@ -95,7 +104,8 @@ int main(int argc, char *argv[])
 
     //    OSATZEKO - PARA COMPLETAR
 ******************************************************************/
-      
+      words = malloc(sizeof(float)*numwords*EMB_SIZE);
+      similarities = malloc(sizeof(float)*numwords*numwords);
   for (i=0; i<numwords; i++) {
    for (j=0; j<EMB_SIZE; j++) {
     fscanf (f1, "%f", &(words[i*EMB_SIZE+j]));
@@ -111,6 +121,7 @@ int main(int argc, char *argv[])
     
     //    OSATZEKO - PARA COMPLETAR
 ******************************************************************/
+  knn_complet(words, numwords,similarities);
   clock_gettime (CLOCK_REALTIME, &t1);
    
   tej = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / (double)1e9;
