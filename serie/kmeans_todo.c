@@ -15,7 +15,7 @@
 #define TAM         25		// Hiztegiko hitzen tamaina maximoa -- Tamaño maximo del diccionario
 #define MAX_ITER    1000    	// konbergentzia: iterazio kopuru maximoa -- Convergencia: num maximo de iteraciones
 #define K	    20 		// kluster kopurua -- numero de clusters
-#define DELTA       0.05		// konbergentzia (cvi) -- convergencia (cvi)
+#define DELTA       0.5		// konbergentzia (cvi) -- convergencia (cvi)
 #define NUMCLUSTERSMAX 100	// cluster kopuru maximoa -- numero máximo de clusters
 
 struct clusterinfo	 // clusterrei buruzko informazioa -- informacion de los clusters
@@ -126,24 +126,22 @@ int i =0, j=0;
 for(i=0;i<numwords;i++) //Hitzak iteratu
 {
   int gert_cluster_idx = -1;
-  float gert_cluster_similaritatea =-2.0f;
+  float gert_cluster_dist =-2.0f;
   for(j=0; j<numclusters; j++) //Clusterrak iteratu
   {
-    float uneko_similaritatea = cosine_similarity(&words[i*EMB_SIZE],&centroids[j*EMB_SIZE],EMB_SIZE);
-    if(uneko_similaritatea>gert_cluster_similaritatea || j==0) //uneko distantzia txikiagoa izango da similaritatea handiagoa bada
+    float uneko_dist = cosine_similarity(words+i*EMB_SIZE,centroids+j*EMB_SIZE,EMB_SIZE);
+    if(uneko_dist>gert_cluster_dist || j==0) //uneko distantzia txikiagoa izango da similaritatea handiagoa bada
     {  
     //balioak eguneratu
-      gert_cluster_similaritatea = uneko_similaritatea;
+      gert_cluster_dist = uneko_dist;
       gert_cluster_idx = j;
     }
-    
   }
-   if (wordcent[i] != gert_cluster_idx) 
-    {
-      *changed = 1;  
-    }
-    //Aurkitu dugu gertuen dagoen clusterra, sartu bektorean
-    wordcent[i] = gert_cluster_idx; 
+   if (wordcent[i] != gert_cluster_idx) {
+            *changed = 1;  
+        }
+  //Aurkitu dugu gertuen dagoen clusterra, sartu bektorean
+  wordcent[i] = gert_cluster_idx; 
 }
 }
 
@@ -222,7 +220,7 @@ double validation (float *words, struct clusterinfo *members, float *centroids, 
     if (number > 1)     // min 2 members in the cluster
     {
        disbat = cluster_homogeneity(words, members, i, numclusters, number);
-       clust_homog[i] = disbat;///(number*(number-1)/2);	// zati bikote kopurua -- div num de parejas
+       clust_homog[i] = disbat/(number*(number-1)/2);	// zati bikote kopurua -- div num de parejas
     }
     else clust_homog[i] = 0;
 
@@ -232,18 +230,9 @@ double validation (float *words, struct clusterinfo *members, float *centroids, 
   // dist. media del centroide del cluster al resto de centroides
   
     disbat = centroid_homogeneity(centroids, i, numclusters);
-    cent_homog[i] = disbat;// (numclusters-1);	// 5 multzo badira, 4 distantzia batu dira -- si son 5 clusters, se han sumado 4 dist.
+    cent_homog[i] = disbat/ (numclusters-1);	// 5 multzo badira, 4 distantzia batu dira -- si son 5 clusters, se han sumado 4 dist.
   }
   
-//DEBUG
-for (i = 0; i < numclusters; i++) {
-    printf("cluster %d: clust_homog = %f   cent_homog = %f\n",
-           i, clust_homog[i], cent_homog[i]);
-}
-
-   
-
-
   // cvi index
     /****************************************************************************************
       OSATZEKO - PARA COMPLETAR
@@ -257,8 +246,6 @@ for (i = 0; i < numclusters; i++) {
     }
     
     cvi = cvi_batukaria/numclusters; // zenbat eta txikiagoa, orduan eta hobea da clustering-a
-    //DEBUG
-    printf("uneko_cvi: %f",cvi);
   return (cvi);
 }
 
@@ -385,7 +372,7 @@ int main(int argc, char *argv[])
     cvi_zaharra = cvi;
     
     if (end_classif == 0) {
-        numclusters++;  // Incrementar para siguiente iteración
+        numclusters+=10;  // Incrementar para siguiente iteración
     }
   }
 
