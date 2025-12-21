@@ -14,7 +14,7 @@
 
 // Bi bektoreen arteko biderketa eskalarra kalkulatzeko funtzioa
 // Función para calcular el producto escalar entre dos vectores
-double dot_product(float* a, float* b, int size) {
+__device__ double dot_product(float* a, float* b, int size) {
     double result = 0;
     for (int i = 0; i < size; i++) {
         result += a[i] * b[i];
@@ -24,7 +24,7 @@ double dot_product(float* a, float* b, int size) {
 
 // Bi bektoreen arteko norma (magnitudea) kalkulatzeko funtzioa
 // Función para calcular la norma (magnitud) de un vector
-float magnitude(float* vec, int size) {
+ __device__ float magnitude(float* vec, int size) {
     float sum = 0;
     for (int i = 0; i < size; i++) {
         sum += vec[i] * vec[i];
@@ -34,7 +34,7 @@ float magnitude(float* vec, int size) {
 
 // Bi bektoreen arteko kosinu antzekotasuna kalkulatzeko funtzioa
 // Función para calcular la similitud coseno entre dos vectores
-float cosine_similarity(float* vec1, float* vec2, int size) {
+__device__ float cosine_similarity(float* vec1, float* vec2, int size) {
     float mag1, mag2;
     
     mag1 = magnitude(vec1, size);
@@ -44,7 +44,7 @@ float cosine_similarity(float* vec1, float* vec2, int size) {
 
 
 // kNN hitz guztietarako -- kNN para todas las palabras
-void knn_complet(float *words, int numwords, float *similarities) {
+__global__ void knn_complet(float *words, int numwords, float *similarities) {
     int i,j;
     
 /******************************************************************
@@ -53,8 +53,11 @@ void knn_complet(float *words, int numwords, float *similarities) {
 
     //    OSATZEKO - PARA COMPLETAR
 ******************************************************************/
-    
-    for(i=0; i<numwords;i++)
+    int id, stride;
+    id = (blockIdx.x * blockDim.x) + threadIdx.x;
+    stride = blockDim.x * gridDim.x;
+
+	  for(i=id; i<numwords;i+=stride)
     {
 	    for(j=0; j<numwords; j++)
 	    {
@@ -70,8 +73,12 @@ int main(int argc, char *argv[])
 {
     int		i, j, numwords, row, col;
     float 	*words;
+     float 	*d_words;
     FILE    	*f1, *f2;
     float 	*similarities;
+    float 	*d_similarities;
+    int blkop = 1;
+    int bltam=50;
     
     struct timespec  t0, t1;
     double tej;
@@ -104,8 +111,10 @@ int main(int argc, char *argv[])
 
     //    OSATZEKO - PARA COMPLETAR
 ******************************************************************/
-      words = malloc(sizeof(float)*numwords*EMB_SIZE);
-      similarities = malloc(sizeof(float)*numwords*numwords);
+      words = (float *)malloc(sizeof(float)*numwords*EMB_SIZE);
+      similarities =(float *) malloc(sizeof(float)*numwords*numwords);
+      cudaMalloc(&d_words,sizeof(float)*numwords*EMB_SIZE);
+      cudaMalloc(&d_similarities,sizeof(float)*numwords*numwords);
   for (i=0; i<numwords; i++) {
    for (j=0; j<EMB_SIZE; j++) {
     fscanf (f1, "%f", &(words[i*EMB_SIZE+j]));
@@ -121,7 +130,17 @@ int main(int argc, char *argv[])
     
     //    OSATZEKO - PARA COMPLETAR
 ******************************************************************/
-  knn_complet(words, numwords,similarities);
+//Kernelera deitu
+  cudaMemcpy(d_words,words,sizeof(float)*numwords*EMB_SIZE, cudaMemcpyHostToDevice);
+
+  knn_complet <<<blkop,bltam>>> (d_words, numwords, d_similarities);
+  
+  cudaDeviceSynchronize();
+
+
+  cudaMemcpy(similarities,d_similarities,sizeof(float)*numwords*numwords, cudaMemcpyDeviceToHost);
+  cudaFree(d_words);
+  cudaFree(d_similarities);
   clock_gettime (CLOCK_REALTIME, &t1);
    
   tej = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / (double)1e9;

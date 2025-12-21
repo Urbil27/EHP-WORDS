@@ -56,16 +56,15 @@ float cosine_similarity(float* vec1, float* vec2, int size) {
 
 // Analogia kalkulatzeko funtzioa
 // Función para calcular la analogía
-void perform_analogy(float *words, int idx1, int idx2, int idx3, float *result_vector) {
+__global__ void perform_analogy(float *words, int idx1, int idx2, int idx3, float *result_vector) {
   /*****************************************************************
        result_vector = word1_vector - word2_vector + word3_vector
        OSATZEKO - PARA COMPLETAR
   *****************************************************************/
- int i ;
- for(i=0; i<EMB_SIZE;i++)
- {
-	result_vector[i]= words[idx1*EMB_SIZE+i]-words[idx2*EMB_SIZE+i]+words[idx3*EMB_SIZE+i];
- }
+  int id;
+  id = (blockIdx.x * blockDim.x) + threadIdx.x;
+	result_vector[id]= words[idx1*EMB_SIZE+id]-words[idx2*EMB_SIZE+id]+words[idx3*EMB_SIZE+id];
+ 
  } 
 
 // Lortutako bektorearen gertukoen hitza bilatzeko funtzioa 
@@ -98,15 +97,17 @@ int main(int argc, char *argv[])
     int		i, j, numwords, idx1, idx2, idx3;
     int 	closest_word_idx;
     float	max_similarity;
-    float 	*words;
+    float 	*words, *d_words;
     FILE    	*f1, *f2;
     char 	**dictionary;  
     char	target_word1[TAM], target_word2[TAM], target_word3[TAM];
-    float	*result_vector;
+    float	*result_vector, *d_result_vector;
     float	*sim_cosine;
         
     struct timespec  t0, t1;
     double tej;
+    int blkop = 1;
+    int bltam = EMB_SIZE;
 
 
    if (argc < 3) {
@@ -135,12 +136,14 @@ int main(int argc, char *argv[])
  printf ("numwords = %d\n", numwords);
   
   words = (float*)malloc (numwords*EMB_SIZE*sizeof(float));
+  cudaMalloc(&d_words, numwords*EMB_SIZE*sizeof(float));
   dictionary = (char**)malloc (numwords*sizeof(char*));
   for (i=0; i<numwords;i++){
    dictionary[i] = (char*)malloc(TAM*sizeof(char));
   }
   sim_cosine = (float*)malloc (numwords*sizeof(float));
   result_vector = (float*)malloc (EMB_SIZE*sizeof(float));
+  cudaMalloc(&d_result_vector, (EMB_SIZE*sizeof(float)));
   
   for (i=0; i<numwords; i++) {
    fscanf (f2, "%s", dictionary[i]);
@@ -175,7 +178,19 @@ int main(int argc, char *argv[])
     //     2. call find_closest_word function   
    /***************************************************/  
 
-    perform_analogy(words, idx1, idx2, idx3, result_vector);
+    //Kopiatu txartelara datuak
+    cudaMemcpy(d_words, words ,numwords*EMB_SIZE*sizeof(float),cudaMemcpyHostToDevice);
+   
+
+    //Kernelari deia
+    
+
+    perform_analogy <<< blkop, bltam>>> (d_words, idx1, idx2, idx3, d_result_vector);
+
+    //Kopiatu txartelatik CPU ra
+
+    cudaMemcpy(result_vector,d_result_vector,EMB_SIZE*sizeof(float) , cudaMemcpyDeviceToHost);
+
     find_closest_word(result_vector,words,numwords,idx1,idx2,idx3,&closest_word_idx,&max_similarity);
 
 
