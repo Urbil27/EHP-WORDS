@@ -113,28 +113,40 @@ void initialize_centroids(float *words, float *centroids, int n, int numclusters
 
 // Zentroideak eguneratu -- Actualizar centroides
 ////////////////////////////
-//Funtzio hau paralelizatu//
+//Funtzio hau paralelizatu//  ////OSO INPORRTANTEA DENBORAK OPTIMIZATZEKO
 ////////////////////////////
-void update_centroids(float *words, float *centroids, int *wordcent, int numwords, int numclusters, int dim, int *cluster_sizes) {
+__global__ void update_centroids_fase1(float *centroids, int numclusters, int dim, int *cluster_sizes) {
     
-    int i, j, cluster;
-
-    for (int i = 0; i < numclusters; i++) {
+    int i, j;
+    int id = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = id; i < numclusters; i+=stride) {
         cluster_sizes[i]=0;
         for (int j = 0; j < dim; j++) {
             centroids[i*dim+j] = 0.0; // Zentroideak berrasieratu -- Reinicia los centroides
         }
     }
+  }
 
-    for (i = 0; i < numwords; i++) {
+  __global__ void update_centroids_fase2(float *words, float *centroids, int *wordcent, int numwords, int dim, int *cluster_sizes) {
+    int i, j,cluster;
+    int id = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (i = id; i < numwords; i+=stride) {
         cluster = wordcent[i];
-        cluster_sizes[cluster]++;
+        atomicAdd(&cluster_sizes[cluster], 1);
         for (j = 0; j < dim; j++) {
-            centroids[cluster*dim+j] += words[i*dim+j];
+          atomicAdd(&centroids[cluster*dim+j], words[i*dim+j]);
         }
     }
-
-    for (i = 0; i < numclusters; i++) {
+  }
+__global__ void update_centroids_fase3(float *centroids, int numclusters, int dim, int *cluster_sizes){
+  int i, j;
+  int id = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int stride = blockDim.x * gridDim.x;
+  
+  
+  for (i = id; i < numclusters; i+=stride) {
         if (cluster_sizes[i] > 0) {
             for (j = 0; j < dim; j++) {
                 centroids[i * dim + j] = centroids[i * dim + j] / cluster_sizes[i];
@@ -388,6 +400,7 @@ int main(int argc, char *argv[])
   float *centroids = (float *)malloc(k * EMB_SIZE * sizeof(float));
   float *d_centroids;
   int *cluster_sizes = (int *)calloc(k, sizeof(int));
+  int *d_cluster_sizes;
   int bltam = 256;
   int blkop = (numwords + bltam - 1) / bltam;
   //Memoria dinamikoki erreserbatu txartelean
@@ -395,11 +408,12 @@ int main(int argc, char *argv[])
   cudaMalloc(&d_wordcent, numwords * sizeof(int));
   cudaMalloc(&d_centroids,k * EMB_SIZE * sizeof(float));
   cudaMalloc(&d_changed,sizeof(int));
+  cudaMalloc(&d_cluster_sizes, k*sizeof(int));
 
   //Datuak kopiatu txartelera
   cudaMemcpy(d_words,words,numwords*EMB_SIZE*sizeof(float),cudaMemcpyHostToDevice);
   cudaMemcpy(d_wordcent,wordcent,numwords * sizeof(int),cudaMemcpyHostToDevice);
-  cudaMemcpy(d_changed, &changed, sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_cluster_sizes,cluster_sizes,k*sizeof(int),cudaMemcpyHostToDevice);
 
 
 
@@ -418,21 +432,32 @@ int main(int argc, char *argv[])
 
     for (iter = 0; iter < MAX_ITER; iter++) {
       changed = 0;
+      cudaMemcpy(d_changed, &changed, sizeof(int), cudaMemcpyHostToDevice);
+
     /****************************************************************************************
       OSATZEKO - PARA COMPLETAR
        deitu k_means_calculate funtzioari -- llamar a la función k_means_calculate
     ****************************************************************************************/
     k_means_calculate  <<< blkop, bltam >>> (d_words, numwords,EMB_SIZE,numclusters,d_wordcent,d_centroids,d_changed);
 
-    cudaMemcpy(words,d_words,numwords*EMB_SIZE*sizeof(float),cudaMemcpyDeviceToHost);
-    cudaMemcpy(wordcent,d_wordcent,numwords * sizeof(int),cudaMemcpyDeviceToHost);
-    cudaMemcpy(centroids,d_centroids,k * EMB_SIZE * sizeof(float),cudaMemcpyDeviceToHost);
+   
     cudaMemcpy(&changed, d_changed, sizeof(int), cudaMemcpyDeviceToHost);
-
+    
       if (changed==0) break; // Aldaketarik ez bada egon, atera -- Si no hay cambios, salir
-      update_centroids(words, centroids, wordcent, numwords, numclusters, EMB_SIZE, cluster_sizes);
-      cudaMemcpy(d_centroids, centroids, numclusters * EMB_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+      cudaMemset(d_cluster_sizes, 0, numclusters * sizeof(int));
+
+      update_centroids_fase1 <<<blkop,bltam>>> (d_centroids, numclusters, EMB_SIZE, d_cluster_sizes);
+      update_centroids_fase2 <<<blkop,bltam>>> (d_words, d_centroids, d_wordcent, numwords, EMB_SIZE, d_cluster_sizes);
+      update_centroids_fase3 <<<blkop,bltam>>> (d_centroids, numclusters, EMB_SIZE, d_cluster_sizes);
+
+      
+
     }  
+    cudaMemcpy(words,d_words,numwords*EMB_SIZE*sizeof(float),cudaMemcpyDeviceToHost);
+      cudaMemcpy(wordcent,d_wordcent,numwords * sizeof(int),cudaMemcpyDeviceToHost);
+      cudaMemcpy(centroids,d_centroids,k * EMB_SIZE * sizeof(float),cudaMemcpyDeviceToHost);
+      cudaMemcpy(centroids, d_centroids, numclusters * EMB_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
+      cudaMemcpy(cluster_sizes,d_cluster_sizes,k*sizeof(int),cudaMemcpyDeviceToHost);
 
 
   // B. Sailkatzearen "kalitatea" -- "Calidad" del cluster
