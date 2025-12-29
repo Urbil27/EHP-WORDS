@@ -124,12 +124,7 @@ int main(int argc, char *argv[])
   
   printf("Hitz guztien auzokideak kalkulatzera zoaz\n");
   clock_gettime (CLOCK_REALTIME, &t0);
-/******************************************************************
-    // Deitu funtzioari
-    // Llamar a la función
-    
-    //    OSATZEKO - PARA COMPLETAR
-******************************************************************/
+
 //Kernelera deitu
   cudaMemcpy(d_words,words,sizeof(float)*numwords*EMB_SIZE, cudaMemcpyHostToDevice);
 

@@ -1,6 +1,3 @@
-
-  // EXEKUTATZEKO: kmeans embeddings.dat dictionary.dat myclusters.dat [numwords]    // numwords: matrize txikiekin probak egiteko 
-
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -84,9 +81,6 @@ float cosine_similarity(float* vec1, float* vec2, int dim) {
 // Adi: double
 double word_distance (float *word1, float *word2)
 {
-  /****************************************************************************************
-      OSATZEKO - PARA COMPLETAR
-    ****************************************************************************************/
   float bat_partziala = 0;
   int i ;
   for (i=0;i<EMB_SIZE; i++)
@@ -97,10 +91,6 @@ double word_distance (float *word1, float *word2)
   return sqrt(bat_partziala);
 }
 
-// Zentroideen hasierako balioak ausaz -- Inicializar centroides aleatoriamente
-////////////////////////////
-//Funtzio hau paralelizatu//
-////////////////////////////
 void initialize_centroids(float *words, float *centroids, int n, int numclusters, int dim) {
     int i, j, random_index;
     for (i = 0; i < numclusters; i++) {
@@ -111,10 +101,6 @@ void initialize_centroids(float *words, float *centroids, int n, int numclusters
     }
 }
 
-// Zentroideak eguneratu -- Actualizar centroides
-////////////////////////////
-//Funtzio hau paralelizatu//  ////OSO INPORRTANTEA DENBORAK OPTIMIZATZEKO
-////////////////////////////
 __global__ void update_centroids_fase1(float *centroids, int numclusters, int dim, int *cluster_sizes) {
     
     int i, j;
@@ -144,8 +130,7 @@ __global__ void update_centroids_fase3(float *centroids, int numclusters, int di
   int i, j;
   int id = (blockIdx.x * blockDim.x) + threadIdx.x;
   int stride = blockDim.x * gridDim.x;
-  
-  
+   
   for (i = id; i < numclusters; i+=stride) {
         if (cluster_sizes[i] > 0) {
             for (j = 0; j < dim; j++) {
@@ -158,16 +143,6 @@ __global__ void update_centroids_fase3(float *centroids, int numclusters, int di
 // K-Means funtzio nagusia -- Función principal de K-Means
 __global__ void k_means_calculate(float *words, int numwords, int dim, int numclusters, int *wordcent, float *centroids, int *changed) 
 {  
-/****************************************************************************************    
-           OSATZEKO - PARA COMPLETAR
-           - Hitz bakoitzari cluster gertukoena esleitu cosine_similarity funtzioan oinarrituta
-           - Asignar cada palabra al cluster más cercano basandose en la función cosine_similarity       
-****************************************************************************************/
-////////////////////////////
-//Funtzio hau paralelizatu//
-////////////////////////////
-
-
 int id = (blockIdx.x * blockDim.x) + threadIdx.x;
 int stride = blockDim.x * gridDim.x;
 for(int i=id;i<numwords;i+=stride) //Hitzak iteratu
@@ -194,12 +169,6 @@ for(int i=id;i<numwords;i+=stride) //Hitzak iteratu
 
 __device__ double d_cluster_homogeneity(float *words, struct clusterinfo *members, int wd_idx, int numclusters, int number) //zertarako nahi ditut numclusters eta number?
 {
-    /****************************************************************************************
-      OSATZEKO - PARA COMPLETAR
-       Kideen arteko distantzien batezbestekoa - Media de las distancias entre los elementos del cluster
-       Cluster bakoitzean, hitz bikote guztien arteko distantziak - En cada cluster, las distancias entre todos los pares de elementos
-       Adi, i-j neurtuta, ez da gero j-i neurtu behar  / Ojo, una vez calculado el par i-j no hay que calcular el j-i
-    ****************************************************************************************/
   int j, n = members[wd_idx].number, kontatutako_bikoteak = 0;
   double dist_bb=0.0, dist_batura=0.0;
   for(int i = 0; i<n; i++)
@@ -216,71 +185,57 @@ __device__ double d_cluster_homogeneity(float *words, struct clusterinfo *member
         );
         kontatutako_bikoteak++;
     }
-
   }
   if (kontatutako_bikoteak > 0) {
         dist_bb=dist_batura / kontatutako_bikoteak;
     }
   return dist_bb;
-
 }
 
 double cluster_homogeneity(float *words, struct clusterinfo *members, int wd_idx, int numclusters, int number) //zertarako nahi ditut numclusters eta number?
 {
-    /****************************************************************************************
-      OSATZEKO - PARA COMPLETAR
-       Kideen arteko distantzien batezbestekoa - Media de las distancias entre los elementos del cluster
-       Cluster bakoitzean, hitz bikote guztien arteko distantziak - En cada cluster, las distancias entre todos los pares de elementos
-       Adi, i-j neurtuta, ez da gero j-i neurtu behar  / Ojo, una vez calculado el par i-j no hay que calcular el j-i
-    ****************************************************************************************/
   int j, n = members[wd_idx].number, kontatutako_bikoteak = 0;
   double dist_bb=0.0, dist_batura=0.0;
   for(int i = 0; i<n; i++)
   {
     for(int j = i+1; j<n; j++)
     {
-     
         int word_idx1 = members[wd_idx].elements[i];
         int word_idx2 = members[wd_idx].elements[j];
         dist_batura+=1.0f-cosine_similarity(
-          &words[word_idx1 * EMB_SIZE],   // 1. hitzeko embeddingaren punteroa
-          &words[word_idx2 * EMB_SIZE],    // 2. hitzeko embeddingaren punteroa
-          EMB_SIZE
+        &words[word_idx1 * EMB_SIZE],   // 1. hitzeko embeddingaren punteroa
+        &words[word_idx2 * EMB_SIZE],    // 2. hitzeko embeddingaren punteroa
+        EMB_SIZE
         );
         kontatutako_bikoteak++;
     }
 
   }
   if (kontatutako_bikoteak > 0) {
-        dist_bb=dist_batura / kontatutako_bikoteak;
-    }
+    dist_bb=dist_batura / kontatutako_bikoteak;
+  }
   return dist_bb;
 
 }
 
 double centroid_homogeneity(float *centroids, int cl_idx, int numclusters)
 {
-    /****************************************************************************************
-      OSATZEKO - PARA COMPLETAR
-    ****************************************************************************************/
+
     int i,j; 
     double dist_bb, dist_batura=0.0;
     for(int i = 0; i<numclusters;i++)
     {
-    
-        if (cl_idx!=i)
-        {
-          dist_batura+=1.0f-cosine_similarity(
-            &centroids[cl_idx * EMB_SIZE],
-            &centroids[i * EMB_SIZE],
-            EMB_SIZE);
-        }
-      
+      if (cl_idx!=i)
+      {
+        dist_batura+=1.0f-cosine_similarity(
+        &centroids[cl_idx * EMB_SIZE],
+        &centroids[i * EMB_SIZE],
+        EMB_SIZE);
+      }
     }
     dist_bb=dist_batura/(numclusters-1);
     return dist_bb;
 }
-
 
 double validation (float *words, struct clusterinfo *members, float *centroids, int numclusters)
 {
@@ -289,18 +244,15 @@ double validation (float *words, struct clusterinfo *members, float *centroids, 
   double  disbat, max, cvi;
   float   clust_homog[numclusters];	// multzo bakoitzeko trinkotasuna -- homogeneidad de cada cluster
 
-  // Kalkulatu clusterren trinkotasuna -- Calcular la homogeneidad de los clusters
-  // Cluster bakoitzean, hitz bikote guztien arteko distantzien batezbestekoa. Adi, i - j neurtuta, ez da gero j - i neurtu behar
-  // En cada cluster las distancias entre todos los pares de palabras. Ojo, una vez calculado i - j, no hay que calcular el j - i
   //Intra cluster distantziak kalkulatu.
  for (i=0; i<numclusters; i++)
   {
     disbat = 0.0;
     number = members[i].number; 
-    if (number > 1)     // min 2 members in the cluster
+    if (number > 1)
     {
-       disbat = cluster_homogeneity(words, members, i, numclusters, number);
-       clust_homog[i] = disbat/(number*(number-1)/2);	// zati bikote kopurua -- div num de parejas
+      disbat = cluster_homogeneity(words, members, i, numclusters, number);
+      clust_homog[i] = disbat/(number*(number-1)/2);	// zati bikote kopurua -- div num de parejas
     }
     else clust_homog[i] = 0;
 
@@ -313,11 +265,6 @@ double validation (float *words, struct clusterinfo *members, float *centroids, 
     cent_homog[i] = disbat/ (numclusters-1);	// 5 multzo badira, 4 distantzia batu dira -- si son 5 clusters, se han sumado 4 dist.
   }
   
-  // cvi index
-    /****************************************************************************************
-      OSATZEKO - PARA COMPLETAR
-      fmaxf: max of 2 floats --> maximoa kalkulatzeko -- para calcular el máximo
-    ****************************************************************************************/
     float max_intra = -1e20f;
     double cvi_batukaria = 0.0f;
     for (i=0; i<numclusters;i++)
@@ -418,10 +365,6 @@ int main(int argc, char *argv[])
 
 
 
-
-/******************************************************************/
-  // A. kmeans kalkulatu -- Calcular kmeans
-  // =========================================================
   printf("K_means\n");
   clock_gettime (CLOCK_REALTIME, &t0);
   
@@ -433,15 +376,8 @@ int main(int argc, char *argv[])
     for (iter = 0; iter < MAX_ITER; iter++) {
       changed = 0;
       cudaMemcpy(d_changed, &changed, sizeof(int), cudaMemcpyHostToDevice);
-
-    /****************************************************************************************
-      OSATZEKO - PARA COMPLETAR
-       deitu k_means_calculate funtzioari -- llamar a la función k_means_calculate
-    ****************************************************************************************/
-    k_means_calculate  <<< blkop, bltam >>> (d_words, numwords,EMB_SIZE,numclusters,d_wordcent,d_centroids,d_changed);
-
-   
-    cudaMemcpy(&changed, d_changed, sizeof(int), cudaMemcpyDeviceToHost);
+      k_means_calculate  <<< blkop, bltam >>> (d_words, numwords,EMB_SIZE,numclusters,d_wordcent,d_centroids,d_changed);
+      cudaMemcpy(&changed, d_changed, sizeof(int), cudaMemcpyDeviceToHost);
     
       if (changed==0) break; // Aldaketarik ez bada egon, atera -- Si no hay cambios, salir
       cudaMemset(d_cluster_sizes, 0, numclusters * sizeof(int));
@@ -449,15 +385,13 @@ int main(int argc, char *argv[])
       update_centroids_fase1 <<<blkop,bltam>>> (d_centroids, numclusters, EMB_SIZE, d_cluster_sizes);
       update_centroids_fase2 <<<blkop,bltam>>> (d_words, d_centroids, d_wordcent, numwords, EMB_SIZE, d_cluster_sizes);
       update_centroids_fase3 <<<blkop,bltam>>> (d_centroids, numclusters, EMB_SIZE, d_cluster_sizes);
-
-      
-
     }  
+
     cudaMemcpy(words,d_words,numwords*EMB_SIZE*sizeof(float),cudaMemcpyDeviceToHost);
-      cudaMemcpy(wordcent,d_wordcent,numwords * sizeof(int),cudaMemcpyDeviceToHost);
-      cudaMemcpy(centroids,d_centroids,k * EMB_SIZE * sizeof(float),cudaMemcpyDeviceToHost);
-      cudaMemcpy(centroids, d_centroids, numclusters * EMB_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
-      cudaMemcpy(cluster_sizes,d_cluster_sizes,k*sizeof(int),cudaMemcpyDeviceToHost);
+    cudaMemcpy(wordcent,d_wordcent,numwords * sizeof(int),cudaMemcpyDeviceToHost);
+    cudaMemcpy(centroids,d_centroids,k * EMB_SIZE * sizeof(float),cudaMemcpyDeviceToHost);
+    cudaMemcpy(centroids, d_centroids, numclusters * EMB_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(cluster_sizes,d_cluster_sizes,k*sizeof(int),cudaMemcpyDeviceToHost);
 
 
   // B. Sailkatzearen "kalitatea" -- "Calidad" del cluster
@@ -473,26 +407,18 @@ int main(int argc, char *argv[])
       members[cluster].number ++; 
     }
     
-    /****************************************************************************************
-      OSATZEKO - PARA COMPLETAR
-        cvi = validation (OSATZEKO - PARA COMPLETAR);
-   	if (cvi appropriate) end classification;
-        else  continue classification;	
-    ****************************************************************************************/
     cvi = validation(words,members,centroids,numclusters);
-    // Begiratu ea konbergitu duesn
-   
 
     if (cvi_zaharra != -1) { //lehenengo iterazioa ekiditu ez dugulako ezer cvi_zaharrean
         dif = fabs(cvi - cvi_zaharra);
         if (dif < DELTA) {
-            end_classif = 1;  // ¡CONVERGENCIA ALCANZADA!
+            end_classif = 1; 
         }
     }
     cvi_zaharra = cvi;
     
     if (end_classif == 0) {
-        numclusters+=10;  // Incrementar para siguiente iteración
+        numclusters+=10;  
     }
   }
 
