@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
   clock_gettime (CLOCK_REALTIME, &t1);
    
   tej = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / (double)1e9;
-  printf("\n Tej. (serie) = %1.3f ms\n\n", tej*1000);
+  printf("\n Tej. (cuda) = %1.3f ms\n\n", tej*1000);
 
 // Idatzi antzekotasunak similarities fitxategietan -- Escribe las similitudes en el fichero similarities
   f2 = fopen (argv[2], "w");

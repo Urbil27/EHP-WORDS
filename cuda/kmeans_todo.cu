@@ -429,7 +429,7 @@ int main(int argc, char *argv[])
   printf ("%d. cluster, %d words \n", i, cluster_sizes[i]);
 
   tej = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / (double)1e9;
-  printf("\n Tej. (serie) = %1.3f ms\n\n", tej*1000);
+  printf("\n Tej. (cuda) = %1.3f ms\n\n", tej*1000);
 
 // Idatzi clusterrak fitxategietan -- Escribir los clusters en el fichero
   f3 = fopen (argv[3], "w");

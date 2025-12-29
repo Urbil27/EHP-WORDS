@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
  
   
   tej = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / (double)1e9;
-  printf("\n Tej. (serie) = %1.3f ms\n\n", tej*1000);
+  printf("\n Tej. (cuda) = %1.3f ms\n\n", tej*1000);
 
   fclose (f1);
   fclose (f2);
