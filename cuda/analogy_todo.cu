@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 {
     int		i, j, numwords, idx1, idx2, idx3, closest_word_idx;
     float	max_similarity;
-    float 	*words, *d_words, *result_vector, *d_result_vector, *sim_cosine;;
+    float 	*words, *d_words, *result_vector, *d_result_vector, *sim_cosine;
     FILE    	*f1, *f2;
     char 	**dictionary;  
     char	target_word1[TAM], target_word2[TAM], target_word3[TAM];
