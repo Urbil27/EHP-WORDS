@@ -157,8 +157,10 @@ int main(int argc, char *argv[])
   perform_analogy <<< blkop, bltam>>> (d_words, idx1, idx2, idx3, d_result_vector);
 
   cudaMemcpy(result_vector,d_result_vector,EMB_SIZE*sizeof(float) , cudaMemcpyDeviceToHost);
-
-  compute_similarities <<<40, 256>>> (d_result_vector,d_words,numwords,idx1,idx2,idx3, d_similarities);
+  
+  int bltam2 = 256;
+  int blkop2 = (numwords + bltam2 - 1) / bltam2;
+  compute_similarities <<<blkop2, bltam2>>> (d_result_vector,d_words,numwords,idx1,idx2,idx3, d_similarities);
     
   cudaDeviceSynchronize();
     

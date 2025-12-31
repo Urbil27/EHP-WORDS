@@ -77,8 +77,8 @@ int main(int argc, char *argv[])
     FILE    	*f1, *f2;
     float 	*similarities;
     float 	*d_similarities;
-    int blkop = 1;
-    int bltam=50;
+    int blkop = 40;
+    int bltam=256;
     
     struct timespec  t0, t1;
     double tej;
